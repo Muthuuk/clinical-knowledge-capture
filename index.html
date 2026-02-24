@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clinical Expert Knowledge Capture Tool</title>
+<meta name="description" content="Efficient tool for capturing clinical expertise to generate AI-ready synthetic healthcare datasets. No patient data required.">
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Serif+Display&display=swap" rel="stylesheet">
+
+<!-- SheetJS for XLSX export -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+<!-- EmailJS for sending emails -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+<style>
+  :root {
+    --navy: #0f2b3c;
+    --navy-light: #1a3f5c;
+    --teal: #0ea5a0;
+    --teal-light: #14d4cd;
+    --teal-pale: #e6faf9;
+    --gold: #e8a838;
+    --gold-light: #fdf4e3;
+    --coral: #e05d50;
+    --coral-light: #fceae8;
+    --green: #2d9a5c;
+    --green-light: #e8f5ee;
+    --purple: #7c5cbf;
+    --purple-light: #f0ebf8;
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --text: #1a2332;
+    --text-secondary: #5a6675;
+    --border: #e2e7ed;
+    --shadow: 0 2px 12px rgba(15,43,60,0.08);
+    --shadow-lg: 0 8px 32px rgba(15,43,60,0.12);
+    --radius: 10px;
+    --radius-lg: 16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* === HEADER === */
+  .site-header {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+    padding: 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 4px 20px rgba(15,43,60,0.25);
+  }
+  .header-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .logo-area h1 {
+    font-family: 'DM Serif Display', serif;
+    color: white;
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: -0.3px;
+  }
+  .logo-area h1 span { color: var(--teal-light); }
+  .logo-area .tagline {
+    color: rgba(255,255,255,0.6);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+  }
+  .header-actions { display: flex; gap: 10px; }
+
+  /* === BUTTONS === */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border: none;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+  }
+  .btn svg { width: 16px; height: 16px; }
+  .btn-primary { background: var(--teal); color: white; }
+  .btn-primary:hover { background: var(--teal-light); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(14,165,160,0.3); }
+  .btn-secondary { background: rgba(255,255,255,0.12); color: white; border: 1px solid rgba(255,255,255,0.2); }
+  .btn-secondary:hover { background: rgba(255,255,255,0.2); }
+  .btn-gold { background: var(--gold); color: var(--navy); }
+  .btn-gold:hover { background: #f0b848; transform: translateY(-1px); }
+  .btn-danger { background: var(--coral); color: white; }
+  .btn-danger:hover { background: #c44d42; }
+  .btn-success { background: var(--green); color: white; }
+  .btn-success:hover { background: #248a4e; transform: translateY(-1px); }
+  .btn-outline { background: transparent; color: var(--teal); border: 2px solid var(--teal); }
+  .btn-outline:hover { background: var(--teal); color: white; }
+  .btn-lg { padding: 12px 24px; font-size: 15px; border-radius: 10px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+  /* === NAVIGATION / STEPPER === */
+  .stepper {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 0;
+  }
+  .stepper-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: flex;
+    gap: 0;
+  }
+  .step-tab {
+    flex: 1;
+    padding: 14px 16px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .step-tab:hover { background: var(--bg); }
+  .step-tab.active { color: var(--teal); border-bottom-color: var(--teal); background: var(--teal-pale); }
+  .step-tab.completed { color: var(--green); }
+  .step-tab .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--border);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .step-tab.active .step-num { background: var(--teal); color: white; }
+  .step-tab.completed .step-num { background: var(--green); color: white; }
+
+  /* === MAIN CONTENT === */
+  .main-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  /* === SECTIONS (pages) === */
+  .section { display: none; }
+  .section.active { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* === CARDS === */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 24px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .card-header .icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .card-header h3 { font-size: 16px; font-weight: 700; }
+  .card-header p { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+  /* === FORM FIELDS === */
+  .field-group { margin-bottom: 16px; }
+  .field-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .field-group label .hint {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: #8896a5;
+    font-style: italic;
+  }
+  .field-group input[type="text"],
+  .field-group input[type="email"],
+  .field-group input[type="number"],
+  .field-group input[type="date"],
+  .field-group select,
+  .field-group textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background: white;
+  }
+  .field-group input:focus,
+  .field-group select:focus,
+  .field-group textarea:focus {
+    outline: none;
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(14,165,160,0.12);
+  }
+  .field-group textarea { resize: vertical; min-height: 60px; line-height: 1.5; }
+  .field-group textarea::placeholder { color: #b0b8c4; font-style: italic; }
+
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  /* === BRANCH CARDS (Decision Map) === */
+  .branch-card {
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 16px;
+    border-left: 5px solid;
+  }
+  .branch-card h3 {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .branch-card h3 .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .branch-symptoms { background: #e8f4fd; border-color: #2E86C1; }
+  .branch-symptoms h3 { color: #1B4F72; }
+  .branch-symptoms .badge { background: #2E86C1; }
+  .branch-assessment { background: var(--gold-light); border-color: var(--gold); }
+  .branch-assessment h3 { color: #7D6608; }
+  .branch-assessment .badge { background: #D4AC0D; }
+  .branch-diagnosis { background: var(--coral-light); border-color: var(--coral); }
+  .branch-diagnosis h3 { color: #922B21; }
+  .branch-diagnosis .badge { background: var(--coral); }
+  .branch-treatment { background: var(--green-light); border-color: var(--green); }
+  .branch-treatment h3 { color: #1E8449; }
+  .branch-treatment .badge { background: var(--green); }
+
+  /* === SCENARIO CARDS === */
+  .scenario-card {
+    background: var(--card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .scenario-header {
+    background: var(--navy);
+    color: white;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .scenario-header h4 { font-size: 14px; }
+  .scenario-body { padding: 20px; }
+  .scenario-remove { background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 4px; }
+  .scenario-remove:hover { color: white; background: rgba(255,255,255,0.15); }
+
+  /* === FREQUENCY HIGHLIGHT === */
+  .frequency-field {
+    background: #fff8ee;
+    border: 2px solid var(--gold);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .frequency-field label { font-size: 13px; font-weight: 600; color: #a67c00; margin: 0; flex-shrink: 0; }
+  .frequency-field input {
+    width: 60px !important;
+    text-align: center;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: var(--gold) !important;
+    border-color: var(--gold) !important;
+  }
+  .frequency-field .freq-note { font-size: 11px; color: #8896a5; }
+
+  /* === CONDITIONAL RULES === */
+  .rule-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 40px;
+    gap: 12px;
+    align-items: start;
+    margin-bottom: 10px;
+    padding: 12px;
+    background: var(--bg);
+    border-radius: 8px;
+  }
+  .rule-remove {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: var(--coral-light);
+    color: var(--coral);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-top: 22px;
+    transition: all 0.15s;
+  }
+  .rule-remove:hover { background: var(--coral); color: white; }
+
+  /* === STATUS / ALERTS === */
+  .alert {
+    padding: 14px 18px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .alert-info { background: var(--teal-pale); color: #0a7d78; border: 1px solid #b3ece9; }
+  .alert-success { background: var(--green-light); color: #1a7a3a; border: 1px solid #b8e5c8; }
+  .alert-warning { background: var(--gold-light); color: #8a6d08; border: 1px solid #f0d99a; }
+  .alert-error { background: var(--coral-light); color: #a93b30; border: 1px solid #f0c4bf; }
+  .alert .alert-icon { font-size: 18px; flex-shrink: 0; }
+
+  /* === PROGRESS === */
+  .progress-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 10px 0;
+  }
+  .progress-bar .fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--teal), var(--teal-light));
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+
+  /* === NAV BUTTONS === */
+  .nav-buttons {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 24px;
+    margin-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* === SUMMARY TABLE === */
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .summary-table th {
+    background: var(--navy);
+    color: white;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+  }
+  .summary-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .summary-table tr:nth-child(even) td { background: var(--bg); }
+  .summary-table .empty-cell { color: var(--coral); font-style: italic; }
+
+  /* === SUBMISSION STATUS === */
+  .submission-status {
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .submission-status .icon { font-size: 64px; margin-bottom: 16px; }
+  .submission-status h2 { font-family: 'DM Serif Display', serif; font-size: 28px; margin-bottom: 8px; }
+  .submission-status p { color: var(--text-secondary); max-width: 500px; margin: 0 auto 20px; }
+
+  /* === SPINNER === */
+  .spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* === RESPONSIVE === */
+  @media (max-width: 768px) {
+    .header-inner { flex-direction: column; gap: 12px; text-align: center; }
+    .header-actions { justify-content: center; }
+    .stepper-inner { overflow-x: auto; }
+    .step-tab { min-width: 120px; font-size: 11px; }
+    .field-row, .field-row-3 { grid-template-columns: 1fr; }
+    .rule-row { grid-template-columns: 1fr; }
+    .rule-remove { margin-top: 0; }
+  }
+
+  /* === PRINT === */
+  @media print {
+    .site-header, .stepper, .nav-buttons, .header-actions { display: none !important; }
+    .section { display: block !important; page-break-after: always; }
+    .card { box-shadow: none; border: 1px solid #ddd; }
+  }
+
+  /* === EMAILJS CONFIG PANEL === */
+  .config-panel {
+    background: var(--purple-light);
+    border: 2px solid var(--purple);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .config-panel h3 { color: var(--purple); font-size: 15px; margin-bottom: 8px; }
+  .config-panel p { font-size: 12px; color: var(--text-secondary); margin-bottom: 14px; }
+  .config-panel code {
+    background: rgba(124,92,191,0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--purple);
+  }
+  .config-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  /* Hide config if already configured */
+  .config-panel.configured { display: none; }
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header class="site-header">
+  <div class="header-inner">
+    <div class="logo-area">
+      <h1>Clinical <span>Knowledge</span> Capture</h1>
+      <div class="tagline">Expert-Driven Synthetic Dataset Generation for Healthcare AI</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="saveToLocalStorage()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Save Draft
+      </button>
+      <button class="btn btn-primary" onclick="downloadXLSX()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download XLSX
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ===== STEP NAVIGATION ===== -->
+<nav class="stepper">
+  <div class="stepper-inner">
+    <div class="step-tab active" onclick="goToStep(0)"><span class="step-num">1</span> Expert Info</div>
+    <div class="step-tab" onclick="goToStep(1)"><span class="step-num">2</span> Decision Map</div>
+    <div class="step-tab" onclick="goToStep(2)"><span class="step-num">3</span> Scenario Cards</div>
+    <div class="step-tab" onclick="goToStep(3)"><span class="step-num">4</span> Conditional Rules</div>
+    <div class="step-tab" onclick="goToStep(4)"><span class="step-num">5</span> Review &amp; Submit</div>
+  </div>
+</nav>
+
+<!-- ===== MAIN CONTENT ===== -->
+<main class="main-content">
+
+  <!-- ==================== STEP 1: EXPERT INFO ==================== -->
+  <div class="section active" id="step-0">
+    <div class="card">
+      <div class="card-header">
+        <div class="icon" style="background:var(--teal-pale);color:var(--teal);">👤</div>
+        <div>
+          <h3>Clinical Expert Information</h3>
+          <p>Your details and the clinical focus area for this knowledge capture session</p>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field-group">
+          <label>Full Name *</label>
+          <input type="text" id="expert_name" placeholder="e.g. Dr Sarah Ahmed">
+        </div>
+        <div class="field-group">
+          <label>Clinical Specialty *</label>
+          <input type="text" id="specialty" placeholder="e.g. Urology, GP, Cardiology">
+        </div>
+      </div>
+
+      <div class="field-row-3">
+        <div class="field-group">
+          <label>Organisation / Hospital</label>
+          <input type="text" id="organisation" placeholder="e.g. Leeds Teaching Hospitals NHS Trust">
+        </div>
+        <div class="field-group">
+          <label>Years of Experience</label>
+          <input type="number" id="years_experience" placeholder="e.g. 15" min="0" max="60">
+        </div>
+        <div class="field-group">
+          <label>Date</label>
+          <input type="date" id="session_date">
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label>Clinical Condition / Area of Focus * <span class="hint">(the condition this knowledge capture is about)</span></label>
+        <input type="text" id="condition_focus" placeholder="e.g. Neuropathic Bladder with Vesicoureteral Reflux, BPH, Kidney Stones">
+      </div>
+
+      <div class="field-group">
+        <label>Email Address * <span class="hint">(where the completed XLSX will be sent)</span></label>
+        <input type="email" id="expert_email" placeholder="your.email@nhs.net">
+      </div>
+
+      <div class="field-group">
+        <label>Researcher Email * <span class="hint">(Prof Ramachandran's email for receiving the data)</span></label>
+        <input type="email" id="researcher_email" value="muthu.ramachandran@forti5.tech">
+      </div>
+    </div>
+
+    <div class="alert alert-info">
+      <span class="alert-icon">ℹ️</span>
+      <div><strong>No patient data required.</strong> This tool captures your clinical expertise and reasoning patterns — not any identifiable patient information. Your knowledge will be used to generate synthetic datasets for AI research.</div>
+    </div>
+
+    <div class="nav-buttons">
+      <div></div>
+      <button class="btn btn-primary btn-lg" onclick="goToStep(1)">Next: Decision Map →</button>
+    </div>
+  </div>
+
+  <!-- ==================== STEP 2: DECISION MAP ==================== -->
+  <div class="section" id="step-1">
+    <div class="alert alert-info">
+      <span class="alert-icon">🗺️</span>
+      <div><strong>Clinical Decision Map</strong> — Describe the four key aspects of how you manage this condition. Use your own words freely. Approximate percentages and numbers are very valuable even if not exact.</div>
+    </div>
+
+    <!-- Branch 1: Symptoms -->
+    <div class="branch-card branch-symptoms">
+      <h3><span class="badge">1</span> Presenting Symptoms</h3>
+      <div class="field-group">
+        <label>Primary symptoms <span class="hint">(the main complaints patients present with)</span></label>
+        <textarea id="dm_primary_symptoms" rows="3" placeholder="e.g. increased urinary frequency, urgency, nocturia (3-4 times per night), hesitancy on initiation..."></textarea>
+      </div>
+      <div class="field-group">
+        <label>Secondary / associated symptoms</label>
+        <textarea id="dm_secondary_symptoms" rows="2" placeholder="e.g. incomplete emptying sensation, post-void dribbling, mild suprapubic discomfort..."></textarea>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Typical severity range</label>
+          <select id="dm_severity">
+            <option value="">— Select —</option>
+            <option>Mild</option>
+            <option>Mild to Moderate</option>
+            <option>Moderate</option>
+            <option>Moderate to Severe</option>
+            <option>Severe</option>
+            <option>Variable (wide range)</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label>Typical onset pattern</label>
+          <select id="dm_onset">
+            <option value="">— Select —</option>
+            <option>Gradual (weeks/months)</option>
+            <option>Sudden (days)</option>
+            <option>Acute (hours)</option>
+            <option>Episodic / Relapsing</option>
+            <option>Progressive worsening</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Branch 2: Assessment -->
+    <div class="branch-card branch-assessment">
+      <h3><span class="badge">2</span> Clinical Assessment &amp; Investigations</h3>
+      <div class="field-group">
+        <label>Investigations you order <span class="hint">(list all tests/imaging/scoring tools)</span></label>
+        <textarea id="dm_investigations" rows="3" placeholder="e.g. PSA blood test, urine dipstick + culture, renal ultrasound, post-void residual, IPSS questionnaire, flow rate study..."></textarea>
+      </div>
+      <div class="field-group">
+        <label>Key findings that CONFIRM diagnosis <span class="hint">(include threshold values where possible)</span></label>
+        <textarea id="dm_confirm_findings" rows="3" placeholder="e.g. PSA > 4 ng/mL raises suspicion; prostate > 30g on ultrasound; IPSS score > 19 = severe; max flow rate < 10 mL/s..."></textarea>
+      </div>
+      <div class="field-group">
+        <label>Key findings that RULE OUT this diagnosis</label>
+        <textarea id="dm_exclude_findings" rows="2" placeholder="e.g. normal PSA + normal DRE makes prostate cancer unlikely; sterile urine rules out UTI..."></textarea>
+      </div>
+      <div class="field-group">
+        <label>Typical patient demographics <span class="hint">(age range, gender, risk factors)</span></label>
+        <textarea id="dm_demographics" rows="2" placeholder="e.g. Male, age 55-80, family history of prostate disease, obesity, diabetes as co-morbidities..."></textarea>
+      </div>
+    </div>
+
+    <!-- Branch 3: Diagnosis -->
+    <div class="branch-card branch-diagnosis">
+      <h3><span class="badge">3</span> Diagnosis</h3>
+      <div class="field-group">
+        <label>Primary diagnosis for this condition</label>
+        <textarea id="dm_primary_diagnosis" rows="2" placeholder="e.g. Benign Prostatic Hyperplasia (BPH) with Lower Urinary Tract Symptoms (LUTS)"></textarea>
+      </div>
+      <div class="field-group">
+        <label>Differential diagnoses to consider <span class="hint">(what else could it be?)</span></label>
+        <textarea id="dm_differentials" rows="3" placeholder="e.g. Prostate cancer (5-10% of this presentation), Overactive bladder, Urethral stricture, Chronic prostatitis, Neurogenic bladder..."></textarea>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Your confidence level (%)</label>
+          <input type="number" id="dm_confidence" placeholder="e.g. 85" min="0" max="100">
+        </div>
+        <div class="field-group">
+          <label>Staging/Grading system used</label>
+          <input type="text" id="dm_staging" placeholder="e.g. Gleason score, TNM staging, IPSS categories">
+        </div>
+      </div>
+    </div>
+
+    <!-- Branch 4: Treatment -->
+    <div class="branch-card branch-treatment">
+      <h3><span class="badge">4</span> Treatment &amp; Outcomes</h3>
+      <div class="field-group">
+        <label>First-line treatment <span class="hint">(what you try first and for how long)</span></label>
+        <textarea id="dm_first_treatment" rows="2" placeholder="e.g. Alpha-blocker (tamsulosin 0.4mg daily) for 3-6 months trial..."></textarea>
+      </div>
+      <div class="field-group">
+        <label>If first-line fails, then... <span class="hint">(escalation pathway)</span></label>
+        <textarea id="dm_second_treatment" rows="2" placeholder="e.g. Add 5-alpha reductase inhibitor (finasteride); if still no improvement after 6 months, refer for TURP..."></textarea>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Success rate of first-line (%)</label>
+          <input type="number" id="dm_success_rate" placeholder="e.g. 70" min="0" max="100">
+        </div>
+        <div class="field-group">
+          <label>Typical follow-up schedule</label>
+          <input type="text" id="dm_followup" placeholder="e.g. Review at 3 months, then 6-monthly">
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Key factors predicting GOOD outcome</label>
+        <textarea id="dm_good_predictors" rows="2" placeholder="e.g. Younger age, lower baseline IPSS, no urinary retention history, smaller prostate volume..."></textarea>
+      </div>
+      <div class="field-group">
+        <label>Key factors predicting POOR outcome</label>
+        <textarea id="dm_poor_predictors" rows="2" placeholder="e.g. Very large prostate (>80g), history of retention, high post-void residual (>200ml), diabetes..."></textarea>
+      </div>
+    </div>
+
+    <div class="nav-buttons">
+      <button class="btn btn-outline btn-lg" onclick="goToStep(0)">← Back</button>
+      <button class="btn btn-primary btn-lg" onclick="goToStep(2)">Next: Scenario Cards →</button>
+    </div>
+  </div>
+
+  <!-- ==================== STEP 3: SCENARIO CARDS ==================== -->
+  <div class="section" id="step-2">
+    <div class="alert alert-info">
+      <span class="alert-icon">🃏</span>
+      <div><strong>Clinical Scenario Cards</strong> — Describe each typical patient presentation you commonly see. Add as many scenarios as needed (aim for 3–8). The "How Common" field is critical for generating realistic dataset proportions.</div>
+    </div>
+
+    <div id="scenarios-container">
+      <!-- Scenario cards inserted dynamically -->
+    </div>
+
+    <div style="text-align:center; margin: 16px 0;">
+      <button class="btn btn-gold btn-lg" onclick="addScenario()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Another Scenario
+      </button>
+    </div>
+
+    <div class="nav-buttons">
+      <button class="btn btn-outline btn-lg" onclick="goToStep(1)">← Back</button>
+      <button class="btn btn-primary btn-lg" onclick="goToStep(3)">Next: Conditional Rules →</button>
+    </div>
+  </div>
+
+  <!-- ==================== STEP 4: CONDITIONAL RULES ==================== -->
+  <div class="section" id="step-3">
+    <div class="alert alert-info">
+      <span class="alert-icon">🔗</span>
+      <div><strong>Conditional Rules</strong> — These are the "if-then" clinical rules that link symptoms, test results, diagnoses, and treatments. These ensure generated datasets have realistic clinical relationships. Write in your own words.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="icon" style="background:var(--purple-light);color:var(--purple);">⚡</div>
+        <div>
+          <h3>Clinical Decision Rules</h3>
+          <p>E.g., "If gross haematuria + age > 50, always investigate for malignancy" → "diagnosis weighted 40% toward cancer"</p>
+        </div>
+      </div>
+
+      <div id="rules-container">
+        <!-- Rules inserted dynamically -->
+      </div>
+
+      <button class="btn btn-outline" onclick="addRule()" style="margin-top:12px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Rule
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="icon" style="background:var(--gold-light);color:var(--gold);">📊</div>
+        <div>
+          <h3>Additional Clinical Parameters</h3>
+          <p>Any measurable parameters not captured above that should appear as columns in the dataset</p>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Additional parameters <span class="hint">(list parameter name, type, and typical range for each)</span></label>
+        <textarea id="additional_params" rows="5" placeholder="e.g.&#10;eGFR — numeric — 15-120 mL/min — normal >60, concerning <30&#10;Detrusor pressure — numeric — 0-100 cmH2O — high risk if >40&#10;Bladder wall thickness — numeric — 2-8 mm — abnormal >5mm&#10;UTI frequency — numeric — 0-12 per year — high risk if >4"></textarea>
+      </div>
+    </div>
+
+    <div class="nav-buttons">
+      <button class="btn btn-outline btn-lg" onclick="goToStep(2)">← Back</button>
+      <button class="btn btn-primary btn-lg" onclick="goToStep(4)">Next: Review &amp; Submit →</button>
+    </div>
+  </div>
+
+  <!-- ==================== STEP 5: REVIEW & SUBMIT ==================== -->
+  <div class="section" id="step-4">
+    <div id="review-content">
+      <!-- Populated dynamically -->
+    </div>
+
+    <!-- EmailJS Configuration (for site owner) -->
+    <div class="config-panel" id="emailjs-config">
+      <h3>⚙️ Email Service Configuration (Site Owner Only)</h3>
+      <p>To enable email delivery, configure <a href="https://www.emailjs.com" target="_blank">EmailJS</a> (free tier: 200 emails/month). See the README for setup instructions. Once configured, these values are saved in your browser.</p>
+      <div class="config-grid">
+        <div class="field-group">
+          <label>EmailJS Public Key</label>
+          <input type="text" id="emailjs_public_key" placeholder="e.g. abc123xyz">
+        </div>
+        <div class="field-group">
+          <label>EmailJS Service ID</label>
+          <input type="text" id="emailjs_service_id" placeholder="e.g. service_xxx">
+        </div>
+        <div class="field-group">
+          <label>EmailJS Template ID</label>
+          <input type="text" id="emailjs_template_id" placeholder="e.g. template_xxx">
+        </div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:12px;" onclick="saveEmailConfig()">Save Email Configuration</button>
+    </div>
+
+    <div class="nav-buttons">
+      <button class="btn btn-outline btn-lg" onclick="goToStep(3)">← Back</button>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-success btn-lg" id="btn-download" onclick="downloadXLSX()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download XLSX
+        </button>
+        <button class="btn btn-gold btn-lg" id="btn-submit" onclick="submitAndEmail()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Submit &amp; Email XLSX
+        </button>
+      </div>
+    </div>
+
+    <!-- Submission status overlay -->
+    <div id="submission-status" style="display:none;"></div>
+  </div>
+
+</main>
+
+<!-- ===== FOOTER ===== -->
+<footer style="text-align:center;padding:24px;color:var(--text-secondary);font-size:12px;border-top:1px solid var(--border);margin-top:40px;">
+  <p>Clinical Expert Knowledge Capture Tool — Prof Muthu Ramachandran, Forti5 Technologies</p>
+  <p style="margin-top:4px;">No patient data is collected. All information represents clinical expertise patterns only.</p>
+</footer>
+
+<script>
+// ===================================================================
+// APPLICATION STATE
+// ===================================================================
+let currentStep = 0;
+let scenarioCount = 0;
+let ruleCount = 0;
+
+// ===================================================================
+// NAVIGATION
+// ===================================================================
+function goToStep(step) {
+  // Hide all sections
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.step-tab').forEach(t => t.classList.remove('active'));
+  
+  // Show target section
+  document.getElementById(`step-${step}`).classList.add('active');
+  document.querySelectorAll('.step-tab')[step].classList.add('active');
+  
+  // Mark completed steps
+  for (let i = 0; i < step; i++) {
+    document.querySelectorAll('.step-tab')[i].classList.add('completed');
+  }
+  
+  currentStep = step;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  
+  // Build review on step 5
+  if (step === 4) buildReview();
+}
+
+// ===================================================================
+// SCENARIO CARDS
+// ===================================================================
+function addScenario() {
+  scenarioCount++;
+  const n = scenarioCount;
+  const html = `
+  <div class="scenario-card" id="scenario-${n}">
+    <div class="scenario-header">
+      <h4>Scenario ${n}</h4>
+      <button class="scenario-remove" onclick="removeScenario(${n})" title="Remove">&times;</button>
+    </div>
+    <div class="scenario-body">
+      <div class="field-group">
+        <label>Scenario name <span class="hint">(give this patient type a short name)</span></label>
+        <input type="text" class="sc-name" placeholder="e.g. Classic BPH, Young male haematuria, Post-menopausal UTI">
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Typical patient profile</label>
+          <textarea class="sc-profile" rows="2" placeholder="Age range, gender, comorbidities, lifestyle factors..."></textarea>
+        </div>
+        <div class="field-group">
+          <label>Presenting symptoms</label>
+          <textarea class="sc-symptoms" rows="2" placeholder="Primary complaint, severity, duration..."></textarea>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Key investigation results</label>
+          <textarea class="sc-investigations" rows="2" placeholder="What tests, what typical values for THIS patient..."></textarea>
+        </div>
+        <div class="field-group">
+          <label>Diagnosis</label>
+          <textarea class="sc-diagnosis" rows="2" placeholder="Primary diagnosis, differentials to rule out..."></textarea>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Treatment pathway</label>
+          <textarea class="sc-treatment" rows="2" placeholder="First-line, if fails then..., typical duration..."></textarea>
+        </div>
+        <div class="field-group">
+          <label>Expected outcome &amp; success rate</label>
+          <textarea class="sc-outcome" rows="2" placeholder="% respond well, what predicts good vs poor outcome..."></textarea>
+        </div>
+      </div>
+      <div class="frequency-field">
+        <label>How common?</label>
+        <input type="number" class="sc-frequency" min="0" max="10" placeholder="?">
+        <span style="font-weight:600;color:#a67c00;">/ 10 patients</span>
+        <span class="freq-note">Out of 10 patients with this condition, how many follow this pattern?</span>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('scenarios-container').insertAdjacentHTML('beforeend', html);
+}
+
+function removeScenario(n) {
+  const el = document.getElementById(`scenario-${n}`);
+  if (el && confirm('Remove this scenario?')) el.remove();
+}
+
+// ===================================================================
+// CONDITIONAL RULES
+// ===================================================================
+function addRule() {
+  ruleCount++;
+  const n = ruleCount;
+  const html = `
+  <div class="rule-row" id="rule-${n}">
+    <div class="field-group">
+      <label>IF (clinical condition)</label>
+      <textarea class="rule-if" rows="2" placeholder="e.g. Gross haematuria AND age > 50"></textarea>
+    </div>
+    <div class="field-group">
+      <label>THEN (clinical action/implication)</label>
+      <textarea class="rule-then" rows="2" placeholder="e.g. Always investigate for malignancy; diagnosis weighted 40% toward bladder/renal cancer"></textarea>
+    </div>
+    <button class="rule-remove" onclick="removeRule(${n})" title="Remove">&times;</button>
+  </div>`;
+  document.getElementById('rules-container').insertAdjacentHTML('beforeend', html);
+}
+
+function removeRule(n) {
+  const el = document.getElementById(`rule-${n}`);
+  if (el) el.remove();
+}
+
+// ===================================================================
+// BUILD REVIEW SUMMARY
+// ===================================================================
+function buildReview() {
+  const data = collectAllData();
+  let html = '';
+  
+  // Completion progress
+  const fields = Object.values(data.expertInfo).concat(Object.values(data.decisionMap));
+  const filled = fields.filter(v => v && String(v).trim()).length;
+  const total = fields.length;
+  const pct = Math.round((filled / total) * 100);
+  
+  html += `<div class="card">
+    <div class="card-header">
+      <div class="icon" style="background:var(--green-light);color:var(--green);">✓</div>
+      <div><h3>Completion Summary</h3><p>${filled} of ${total} core fields completed (${pct}%)</p></div>
+    </div>
+    <div class="progress-bar"><div class="fill" style="width:${pct}%"></div></div>
+  </div>`;
+  
+  // Expert Info summary
+  html += `<div class="card">
+    <div class="card-header">
+      <div class="icon" style="background:var(--teal-pale);color:var(--teal);">👤</div>
+      <div><h3>Expert Information</h3></div>
+    </div>
+    <table class="summary-table">
+      <tr><th>Field</th><th>Value</th></tr>
+      <tr><td>Name</td><td>${data.expertInfo.name || '<span class="empty-cell">Not provided</span>'}</td></tr>
+      <tr><td>Specialty</td><td>${data.expertInfo.specialty || '<span class="empty-cell">Not provided</span>'}</td></tr>
+      <tr><td>Organisation</td><td>${data.expertInfo.organisation || '<span class="empty-cell">Not provided</span>'}</td></tr>
+      <tr><td>Condition Focus</td><td>${data.expertInfo.condition || '<span class="empty-cell">Not provided</span>'}</td></tr>
+      <tr><td>Expert Email</td><td>${data.expertInfo.expertEmail || '<span class="empty-cell">Not provided</span>'}</td></tr>
+      <tr><td>Researcher Email</td><td>${data.expertInfo.researcherEmail || '<span class="empty-cell">Not provided</span>'}</td></tr>
+    </table>
+  </div>`;
+  
+  // Scenarios summary
+  html += `<div class="card">
+    <div class="card-header">
+      <div class="icon" style="background:var(--gold-light);color:var(--gold);">🃏</div>
+      <div><h3>Scenario Cards (${data.scenarios.length})</h3></div>
+    </div>`;
+  if (data.scenarios.length === 0) {
+    html += '<div class="alert alert-warning"><span class="alert-icon">⚠️</span> No scenarios added yet. Go back to Step 3 to add patient scenarios.</div>';
+  } else {
+    html += '<table class="summary-table"><tr><th>#</th><th>Name</th><th>Frequency</th><th>Diagnosis</th></tr>';
+    data.scenarios.forEach((s, i) => {
+      html += `<tr><td>${i+1}</td><td>${s.name || '<span class="empty-cell">Unnamed</span>'}</td><td>${s.frequency ? s.frequency + '/10' : '?'}</td><td>${s.diagnosis || '—'}</td></tr>`;
+    });
+    html += '</table>';
+  }
+  html += '</div>';
+  
+  // Rules summary
+  html += `<div class="card">
+    <div class="card-header">
+      <div class="icon" style="background:var(--purple-light);color:var(--purple);">⚡</div>
+      <div><h3>Conditional Rules (${data.rules.length})</h3></div>
+    </div>`;
+  if (data.rules.length === 0) {
+    html += '<div class="alert alert-warning"><span class="alert-icon">⚠️</span> No conditional rules added. These are valuable for generating realistic data.</div>';
+  } else {
+    html += '<table class="summary-table"><tr><th>#</th><th>IF</th><th>THEN</th></tr>';
+    data.rules.forEach((r, i) => {
+      html += `<tr><td>${i+1}</td><td>${r.condition || '—'}</td><td>${r.action || '—'}</td></tr>`;
+    });
+    html += '</table>';
+  }
+  html += '</div>';
+  
+  document.getElementById('review-content').innerHTML = html;
+  
+  // Check EmailJS config
+  const cfg = getEmailConfig();
+  if (cfg.publicKey && cfg.serviceId && cfg.templateId) {
+    document.getElementById('emailjs-config').classList.add('configured');
+  } else {
+    document.getElementById('emailjs-config').classList.remove('configured');
+  }
+}
+
+// ===================================================================
+// DATA COLLECTION
+// ===================================================================
+function collectAllData() {
+  const data = {
+    expertInfo: {
+      name: v('expert_name'),
+      specialty: v('specialty'),
+      organisation: v('organisation'),
+      yearsExperience: v('years_experience'),
+      date: v('session_date'),
+      condition: v('condition_focus'),
+      expertEmail: v('expert_email'),
+      researcherEmail: v('researcher_email'),
+    },
+    decisionMap: {
+      primarySymptoms: v('dm_primary_symptoms'),
+      secondarySymptoms: v('dm_secondary_symptoms'),
+      severity: v('dm_severity'),
+      onset: v('dm_onset'),
+      investigations: v('dm_investigations'),
+      confirmFindings: v('dm_confirm_findings'),
+      excludeFindings: v('dm_exclude_findings'),
+      demographics: v('dm_demographics'),
+      primaryDiagnosis: v('dm_primary_diagnosis'),
+      differentials: v('dm_differentials'),
+      confidence: v('dm_confidence'),
+      staging: v('dm_staging'),
+      firstTreatment: v('dm_first_treatment'),
+      secondTreatment: v('dm_second_treatment'),
+      successRate: v('dm_success_rate'),
+      followup: v('dm_followup'),
+      goodPredictors: v('dm_good_predictors'),
+      poorPredictors: v('dm_poor_predictors'),
+    },
+    scenarios: [],
+    rules: [],
+    additionalParams: v('additional_params'),
+  };
+  
+  // Collect scenarios
+  document.querySelectorAll('.scenario-card').forEach(card => {
+    data.scenarios.push({
+      name: card.querySelector('.sc-name')?.value || '',
+      profile: card.querySelector('.sc-profile')?.value || '',
+      symptoms: card.querySelector('.sc-symptoms')?.value || '',
+      investigations: card.querySelector('.sc-investigations')?.value || '',
+      diagnosis: card.querySelector('.sc-diagnosis')?.value || '',
+      treatment: card.querySelector('.sc-treatment')?.value || '',
+      outcome: card.querySelector('.sc-outcome')?.value || '',
+      frequency: card.querySelector('.sc-frequency')?.value || '',
+    });
+  });
+  
+  // Collect rules
+  document.querySelectorAll('.rule-row').forEach(row => {
+    const cond = row.querySelector('.rule-if')?.value || '';
+    const action = row.querySelector('.rule-then')?.value || '';
+    if (cond || action) {
+      data.rules.push({ condition: cond, action: action });
+    }
+  });
+  
+  return data;
+}
+
+function v(id) { return document.getElementById(id)?.value || ''; }
+
+// ===================================================================
+// XLSX GENERATION
+// ===================================================================
+function generateXLSX(data) {
+  const wb = XLSX.utils.book_new();
+  
+  // Sheet 1: Expert Info
+  const infoRows = [
+    ['Clinical Expert Knowledge Capture'],
+    [''],
+    ['Field', 'Value'],
+    ['Expert Name', data.expertInfo.name],
+    ['Specialty', data.expertInfo.specialty],
+    ['Organisation', data.expertInfo.organisation],
+    ['Years of Experience', data.expertInfo.yearsExperience],
+    ['Date', data.expertInfo.date],
+    ['Condition Focus', data.expertInfo.condition],
+    ['Expert Email', data.expertInfo.expertEmail],
+    ['Researcher Email', data.expertInfo.researcherEmail],
+  ];
+  const ws1 = XLSX.utils.aoa_to_sheet(infoRows);
+  ws1['!cols'] = [{ wch: 25 }, { wch: 50 }];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Expert Info');
+  
+  // Sheet 2: Decision Map
+  const dmRows = [
+    ['Clinical Decision Map', '', data.expertInfo.condition],
+    [''],
+    ['BRANCH', 'FIELD', 'VALUE'],
+    ['1. Presenting Symptoms', 'Primary Symptoms', data.decisionMap.primarySymptoms],
+    ['', 'Secondary Symptoms', data.decisionMap.secondarySymptoms],
+    ['', 'Severity', data.decisionMap.severity],
+    ['', 'Onset Pattern', data.decisionMap.onset],
+    [''],
+    ['2. Clinical Assessment', 'Investigations Ordered', data.decisionMap.investigations],
+    ['', 'Findings that Confirm', data.decisionMap.confirmFindings],
+    ['', 'Findings that Rule Out', data.decisionMap.excludeFindings],
+    ['', 'Typical Demographics', data.decisionMap.demographics],
+    [''],
+    ['3. Diagnosis', 'Primary Diagnosis', data.decisionMap.primaryDiagnosis],
+    ['', 'Differential Diagnoses', data.decisionMap.differentials],
+    ['', 'Confidence Level (%)', data.decisionMap.confidence],
+    ['', 'Staging/Grading', data.decisionMap.staging],
+    [''],
+    ['4. Treatment & Outcomes', 'First-Line Treatment', data.decisionMap.firstTreatment],
+    ['', 'Second-Line / Escalation', data.decisionMap.secondTreatment],
+    ['', 'Success Rate (%)', data.decisionMap.successRate],
+    ['', 'Follow-Up Schedule', data.decisionMap.followup],
+    ['', 'Good Outcome Predictors', data.decisionMap.goodPredictors],
+    ['', 'Poor Outcome Predictors', data.decisionMap.poorPredictors],
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(dmRows);
+  ws2['!cols'] = [{ wch: 25 }, { wch: 30 }, { wch: 60 }];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Decision Map');
+  
+  // Sheet 3: Scenario Cards
+  const scHeaders = ['Scenario #', 'Name', 'Patient Profile', 'Symptoms', 'Investigations', 'Diagnosis', 'Treatment', 'Outcome', 'Frequency (/10)'];
+  const scRows = [scHeaders];
+  data.scenarios.forEach((s, i) => {
+    scRows.push([i + 1, s.name, s.profile, s.symptoms, s.investigations, s.diagnosis, s.treatment, s.outcome, s.frequency]);
+  });
+  const ws3 = XLSX.utils.aoa_to_sheet(scRows);
+  ws3['!cols'] = [{ wch: 10 }, { wch: 25 }, { wch: 30 }, { wch: 35 }, { wch: 35 }, { wch: 30 }, { wch: 35 }, { wch: 35 }, { wch: 12 }];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Scenario Cards');
+  
+  // Sheet 4: Conditional Rules
+  const ruleHeaders = ['Rule #', 'IF (Clinical Condition)', 'THEN (Action/Implication)'];
+  const ruleRows = [ruleHeaders];
+  data.rules.forEach((r, i) => {
+    ruleRows.push([i + 1, r.condition, r.action]);
+  });
+  const ws4 = XLSX.utils.aoa_to_sheet(ruleRows);
+  ws4['!cols'] = [{ wch: 8 }, { wch: 50 }, { wch: 50 }];
+  XLSX.utils.book_append_sheet(wb, ws4, 'Conditional Rules');
+  
+  // Sheet 5: Additional Parameters
+  if (data.additionalParams) {
+    const paramRows = [['Additional Clinical Parameters'], [''], ['Parameter Details']];
+    data.additionalParams.split('\n').forEach(line => {
+      if (line.trim()) paramRows.push([line.trim()]);
+    });
+    const ws5 = XLSX.utils.aoa_to_sheet(paramRows);
+    ws5['!cols'] = [{ wch: 80 }];
+    XLSX.utils.book_append_sheet(wb, ws5, 'Additional Parameters');
+  }
+  
+  // Sheet 6: Dataset Column Specification (auto-generated from the data)
+  const colSpec = [
+    ['AUTO-GENERATED DATASET COLUMN SPECIFICATION'],
+    ['Generated from Clinical Expert Knowledge Capture'],
+    [''],
+    ['Column Name', 'Data Type', 'Range/Values', 'Source', 'Notes'],
+    ['patient_id', 'Integer', '1-N', 'Auto-generated', 'Unique synthetic patient ID'],
+    ['age', 'Integer', 'From demographics', 'Decision Map', data.decisionMap.demographics],
+    ['gender', 'Categorical', 'M/F', 'Decision Map', ''],
+  ];
+  
+  // Auto-extract potential columns from scenarios
+  if (data.scenarios.length > 0) {
+    colSpec.push(['', '', '', '', '']);
+    colSpec.push(['--- Columns derived from Scenario Cards ---', '', '', '', '']);
+    colSpec.push(['scenario_type', 'Categorical', data.scenarios.map(s => s.name).join(', '), 'Scenario Cards', 'Weighted by frequency']);
+    colSpec.push(['diagnosis', 'Categorical', data.scenarios.map(s => s.diagnosis).filter(Boolean).join('; '), 'Scenario Cards', '']);
+    colSpec.push(['treatment', 'Categorical', data.scenarios.map(s => s.treatment).filter(Boolean).join('; '), 'Scenario Cards', '']);
+  }
+  
+  if (data.decisionMap.successRate) {
+    colSpec.push(['treatment_success', 'Binary', '0/1', 'Decision Map', `First-line success rate: ${data.decisionMap.successRate}%`]);
+  }
+  
+  const ws6 = XLSX.utils.aoa_to_sheet(colSpec);
+  ws6['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 30 }, { wch: 15 }, { wch: 50 }];
+  XLSX.utils.book_append_sheet(wb, ws6, 'Dataset Columns');
+  
+  return wb;
+}
+
+function downloadXLSX() {
+  const data = collectAllData();
+  const wb = generateXLSX(data);
+  const condition = data.expertInfo.condition || 'clinical_knowledge';
+  const safeName = condition.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40);
+  const date = new Date().toISOString().split('T')[0];
+  XLSX.writeFile(wb, `Clinical_Knowledge_${safeName}_${date}.xlsx`);
+}
+
+// ===================================================================
+// EMAIL CONFIGURATION (stored in localStorage)
+// ===================================================================
+function getEmailConfig() {
+  return {
+    publicKey: localStorage.getItem('emailjs_public_key') || '',
+    serviceId: localStorage.getItem('emailjs_service_id') || '',
+    templateId: localStorage.getItem('emailjs_template_id') || '',
+  };
+}
+
+function saveEmailConfig() {
+  localStorage.setItem('emailjs_public_key', v('emailjs_public_key'));
+  localStorage.setItem('emailjs_service_id', v('emailjs_service_id'));
+  localStorage.setItem('emailjs_template_id', v('emailjs_template_id'));
+  document.getElementById('emailjs-config').classList.add('configured');
+  alert('Email configuration saved successfully.');
+}
+
+function loadEmailConfig() {
+  const cfg = getEmailConfig();
+  if (cfg.publicKey) document.getElementById('emailjs_public_key').value = cfg.publicKey;
+  if (cfg.serviceId) document.getElementById('emailjs_service_id').value = cfg.serviceId;
+  if (cfg.templateId) document.getElementById('emailjs_template_id').value = cfg.templateId;
+}
+
+// ===================================================================
+// SUBMIT & EMAIL
+// ===================================================================
+async function submitAndEmail() {
+  const data = collectAllData();
+  const statusEl = document.getElementById('submission-status');
+  const btn = document.getElementById('btn-submit');
+  
+  // Validate minimum fields
+  if (!data.expertInfo.name || !data.expertInfo.condition) {
+    alert('Please fill in at least your name and the clinical condition focus before submitting.');
+    return;
+  }
+  
+  // Step 1: Always generate and download the XLSX first
+  const wb = generateXLSX(data);
+  const condition = data.expertInfo.condition || 'clinical_knowledge';
+  const safeName = condition.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40);
+  const date = new Date().toISOString().split('T')[0];
+  const fileName = `Clinical_Knowledge_${safeName}_${date}.xlsx`;
+  
+  // Generate XLSX as base64 for email attachment
+  const xlsxBase64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+  
+  // Download locally
+  XLSX.writeFile(wb, fileName);
+  
+  // Step 2: Try to send email
+  const cfg = getEmailConfig();
+  
+  if (!cfg.publicKey || !cfg.serviceId || !cfg.templateId) {
+    // No email config — show download-only success
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = `
+      <div class="submission-status">
+        <div class="icon">✅</div>
+        <h2>XLSX Downloaded Successfully</h2>
+        <p>The file <strong>${fileName}</strong> has been saved to your device. Email delivery is not configured on this deployment — please send the file manually to <strong>${data.expertInfo.researcherEmail}</strong>.</p>
+        <a href="mailto:${data.expertInfo.researcherEmail}?subject=Clinical%20Knowledge%20Capture%20-%20${encodeURIComponent(data.expertInfo.condition)}&body=Please%20find%20the%20attached%20XLSX%20from%20${encodeURIComponent(data.expertInfo.name)}." class="btn btn-primary btn-lg" style="margin-top:12px;">
+          Open Email Client to Send
+        </a>
+      </div>`;
+    return;
+  }
+  
+  // Email is configured — send
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Sending...';
+  
+  try {
+    emailjs.init(cfg.publicKey);
+    
+    // Build a text summary for the email body
+    const summary = buildTextSummary(data);
+    
+    await emailjs.send(cfg.serviceId, cfg.templateId, {
+      to_email: data.expertInfo.researcherEmail,
+      cc_email: data.expertInfo.expertEmail,
+      from_name: data.expertInfo.name,
+      expert_name: data.expertInfo.name,
+      specialty: data.expertInfo.specialty,
+      condition: data.expertInfo.condition,
+      organisation: data.expertInfo.organisation,
+      date: data.expertInfo.date,
+      summary: summary,
+      file_name: fileName,
+      // Note: EmailJS free tier doesn't support file attachments.
+      // The email contains the summary + instructions to download.
+    });
+    
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = `
+      <div class="submission-status">
+        <div class="icon">🎉</div>
+        <h2>Successfully Submitted!</h2>
+        <p>The XLSX file has been downloaded to your device, and an email notification with your knowledge capture summary has been sent to <strong>${data.expertInfo.researcherEmail}</strong>${data.expertInfo.expertEmail ? ` (cc: ${data.expertInfo.expertEmail})` : ''}.</p>
+        <p style="color:var(--text-secondary);font-size:12px;margin-top:8px;">Note: Please also attach the downloaded XLSX file when replying to the email notification, as EmailJS free tier does not support file attachments directly.</p>
+        <button class="btn btn-outline btn-lg" onclick="location.reload()" style="margin-top:16px;">Start New Capture</button>
+      </div>`;
+      
+  } catch (err) {
+    console.error('Email error:', err);
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = `
+      <div class="submission-status">
+        <div class="icon">⚠️</div>
+        <h2>XLSX Downloaded (Email Failed)</h2>
+        <p>The file was downloaded successfully, but the email notification could not be sent. Error: ${err.text || err.message || 'Unknown error'}.</p>
+        <p>Please send the downloaded file manually to <strong>${data.expertInfo.researcherEmail}</strong>.</p>
+        <a href="mailto:${data.expertInfo.researcherEmail}?subject=Clinical%20Knowledge%20Capture%20-%20${encodeURIComponent(data.expertInfo.condition)}" class="btn btn-primary btn-lg" style="margin-top:12px;">
+          Open Email Client
+        </a>
+      </div>`;
+  }
+  
+  btn.disabled = false;
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Submit & Email XLSX`;
+}
+
+function buildTextSummary(data) {
+  let s = `CLINICAL KNOWLEDGE CAPTURE SUMMARY\n`;
+  s += `==================================\n\n`;
+  s += `Expert: ${data.expertInfo.name}\n`;
+  s += `Specialty: ${data.expertInfo.specialty}\n`;
+  s += `Organisation: ${data.expertInfo.organisation}\n`;
+  s += `Condition: ${data.expertInfo.condition}\n`;
+  s += `Date: ${data.expertInfo.date}\n\n`;
+  
+  s += `DECISION MAP\n`;
+  s += `------------\n`;
+  s += `Primary Symptoms: ${data.decisionMap.primarySymptoms}\n`;
+  s += `Secondary Symptoms: ${data.decisionMap.secondarySymptoms}\n`;
+  s += `Severity: ${data.decisionMap.severity}\n`;
+  s += `Investigations: ${data.decisionMap.investigations}\n`;
+  s += `Confirm Findings: ${data.decisionMap.confirmFindings}\n`;
+  s += `Primary Diagnosis: ${data.decisionMap.primaryDiagnosis}\n`;
+  s += `Differentials: ${data.decisionMap.differentials}\n`;
+  s += `First Treatment: ${data.decisionMap.firstTreatment}\n`;
+  s += `Success Rate: ${data.decisionMap.successRate}%\n\n`;
+  
+  s += `SCENARIOS (${data.scenarios.length})\n`;
+  s += `----------\n`;
+  data.scenarios.forEach((sc, i) => {
+    s += `${i+1}. ${sc.name} (Frequency: ${sc.frequency}/10)\n`;
+    s += `   Diagnosis: ${sc.diagnosis}\n`;
+    s += `   Treatment: ${sc.treatment}\n\n`;
+  });
+  
+  s += `CONDITIONAL RULES (${data.rules.length})\n`;
+  s += `------------------\n`;
+  data.rules.forEach((r, i) => {
+    s += `${i+1}. IF: ${r.condition}\n   THEN: ${r.action}\n\n`;
+  });
+  
+  return s;
+}
+
+// ===================================================================
+// LOCAL STORAGE (SAVE/LOAD DRAFT)
+// ===================================================================
+function saveToLocalStorage() {
+  const data = collectAllData();
+  localStorage.setItem('clinical_capture_draft', JSON.stringify(data));
+  localStorage.setItem('clinical_capture_draft_date', new Date().toISOString());
+  
+  // Also save scenario and rule HTML
+  localStorage.setItem('clinical_capture_scenarios_html', document.getElementById('scenarios-container').innerHTML);
+  localStorage.setItem('clinical_capture_rules_html', document.getElementById('rules-container').innerHTML);
+  localStorage.setItem('clinical_capture_scenario_count', scenarioCount);
+  localStorage.setItem('clinical_capture_rule_count', ruleCount);
+  
+  alert('Draft saved. You can close this page and return later.');
+}
+
+function loadFromLocalStorage() {
+  const saved = localStorage.getItem('clinical_capture_draft');
+  if (!saved) return false;
+  
+  const savedDate = localStorage.getItem('clinical_capture_draft_date');
+  if (savedDate && !confirm(`Found a saved draft from ${new Date(savedDate).toLocaleDateString()}. Load it?`)) {
+    return false;
+  }
+  
+  const data = JSON.parse(saved);
+  
+  // Restore expert info
+  if (data.expertInfo) {
+    setV('expert_name', data.expertInfo.name);
+    setV('specialty', data.expertInfo.specialty);
+    setV('organisation', data.expertInfo.organisation);
+    setV('years_experience', data.expertInfo.yearsExperience);
+    setV('session_date', data.expertInfo.date);
+    setV('condition_focus', data.expertInfo.condition);
+    setV('expert_email', data.expertInfo.expertEmail);
+    setV('researcher_email', data.expertInfo.researcherEmail);
+  }
+  
+  // Restore decision map
+  if (data.decisionMap) {
+    setV('dm_primary_symptoms', data.decisionMap.primarySymptoms);
+    setV('dm_secondary_symptoms', data.decisionMap.secondarySymptoms);
+    setV('dm_severity', data.decisionMap.severity);
+    setV('dm_onset', data.decisionMap.onset);
+    setV('dm_investigations', data.decisionMap.investigations);
+    setV('dm_confirm_findings', data.decisionMap.confirmFindings);
+    setV('dm_exclude_findings', data.decisionMap.excludeFindings);
+    setV('dm_demographics', data.decisionMap.demographics);
+    setV('dm_primary_diagnosis', data.decisionMap.primaryDiagnosis);
+    setV('dm_differentials', data.decisionMap.differentials);
+    setV('dm_confidence', data.decisionMap.confidence);
+    setV('dm_staging', data.decisionMap.staging);
+    setV('dm_first_treatment', data.decisionMap.firstTreatment);
+    setV('dm_second_treatment', data.decisionMap.secondTreatment);
+    setV('dm_success_rate', data.decisionMap.successRate);
+    setV('dm_followup', data.decisionMap.followup);
+    setV('dm_good_predictors', data.decisionMap.goodPredictors);
+    setV('dm_poor_predictors', data.decisionMap.poorPredictors);
+  }
+  
+  // Restore scenarios HTML
+  const scenariosHTML = localStorage.getItem('clinical_capture_scenarios_html');
+  if (scenariosHTML) {
+    document.getElementById('scenarios-container').innerHTML = scenariosHTML;
+    scenarioCount = parseInt(localStorage.getItem('clinical_capture_scenario_count')) || 0;
+  }
+  
+  // Restore rules HTML
+  const rulesHTML = localStorage.getItem('clinical_capture_rules_html');
+  if (rulesHTML) {
+    document.getElementById('rules-container').innerHTML = rulesHTML;
+    ruleCount = parseInt(localStorage.getItem('clinical_capture_rule_count')) || 0;
+  }
+  
+  setV('additional_params', data.additionalParams);
+  
+  return true;
+}
+
+function setV(id, val) {
+  const el = document.getElementById(id);
+  if (el && val) el.value = val;
+}
+
+// ===================================================================
+// INITIALISATION
+// ===================================================================
+document.addEventListener('DOMContentLoaded', () => {
+  // Set today's date
+  document.getElementById('session_date').value = new Date().toISOString().split('T')[0];
+  
+  // Load email config
+  loadEmailConfig();
+  
+  // Try to restore draft
+  const loaded = loadFromLocalStorage();
+  
+  // Add initial scenarios and rules if no draft loaded
+  if (!loaded) {
+    addScenario();
+    addScenario();
+    addScenario();
+    addRule();
+    addRule();
+    addRule();
+  }
+});
+</script>
+
+</body>
+</html>
